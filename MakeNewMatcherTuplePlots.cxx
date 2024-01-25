@@ -25,14 +25,14 @@ using namespace std;
 void MakeNewMatcherTuplePlots() {
 
   // io parameters
-  const string sOutput("newMatcherTuplePlots_oneMatchPerParticle_oddFrac02120.pt10n1evt500pim.d24m1y2024.root");
-  const string sInTrue("input/merged/sPhenixG4_oneMatchPerParticle_newMatcher.pt10num1evt500pim.d4m1y2024.root");
-  const string sInReco("input/merged/sPhenixG4_oneMatchPerParticle_newMatcher.pt10num1evt500pim.d4m1y2024.root");
+  const string sOutput("newMatcherTuplePlots_oneMatchPerParticle_embedScanOn_withActualTruthPt_oddFrac05150.pt10n1evt500pim.d25m1y2024.root");
+  const string sInTrue("input/merged/sPhenixG4_oneMatchPerParticle_forCrossCheck_newMatcher.pt10num1evt500pim.d25m1y2024.root");
+  const string sInReco("input/merged/sPhenixG4_oneMatchPerParticle_forCrossCheck_newMatcher.pt10num1evt500pim.d25m1y2024.root");
   const string sTreeTrue("ntForEvalComp");
   const string sTreeReco("ntForEvalComp");
 
   // weird track parameters
-  const pair<float, float> oddPtFrac = {0.2, 1.2};
+  const pair<float, float> oddPtFrac = {0.5, 1.5};
 
   // lower verbosity
   gErrorIgnoreLevel = kError;
@@ -334,8 +334,8 @@ void MakeNewMatcherTuplePlots() {
   const uint32_t nRatBins  = 120;
   const uint32_t nEtaBins  = 80;
   const uint32_t nPhiBins  = 360;
-  const uint32_t nPtBins   = 202;
-  const uint32_t nFracBins = 220;
+  const uint32_t nPtBins   = 101;
+  const uint32_t nFracBins = 110;
 
   // output histogram bin ranges
   const pair<float, float> xNumBins  = {-0.5,  100.5};
@@ -457,9 +457,9 @@ void MakeNewMatcherTuplePlots() {
     vecHist1D[Var::RIntt][Type::Truth] -> Fill(1.);
     vecHist1D[Var::RMvtx][Type::Truth] -> Fill(1.);
     vecHist1D[Var::RTpc][Type::Truth]  -> Fill(1.);
-    vecHist1D[Var::Phi][Type::Truth]   -> Fill(tru_gpt);
+    vecHist1D[Var::Phi][Type::Truth]   -> Fill(tru_gphi);
     vecHist1D[Var::Eta][Type::Truth]   -> Fill(tru_geta);
-    vecHist1D[Var::Pt][Type::Truth]    -> Fill(tru_gphi);
+    vecHist1D[Var::Pt][Type::Truth]    -> Fill(tru_gpt);
     vecHist1D[Var::Frac][Type::Truth]  -> Fill(1.);
 
     // fill truth 2D histograms
