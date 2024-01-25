@@ -25,36 +25,18 @@ using namespace std;
 void MakeOldEvaluatorPlots() {
 
   // io parameters
-  const string         sOutput("oldEvalPlots_oneMatchPerParticle_oddFrac02120.pt10n1evt500pim.d18m1y2024.root");
+  const string         sOutput("oldEvalPlots_oneMatchPerParticle_embedScanOn_noNaNs_oddFrac05150.pt10n1evt500pim.d25m1y2024.root");
   const string         sTupleTrue("ntp_gtrack");
   const string         sTupleReco("ntp_track");
   const vector<string> vecInTrue = {
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run0.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run1.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run2.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run3.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run4.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run5.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run6.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run7.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run8.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run9.pt10num1evt500pim.d16m1y2024.root"
+    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_forCrossCheck.pt10num1evt500pim.d25m1y2024.root"
   };
   const vector<string> vecInReco = {
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run0.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run1.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run2.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run3.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run4.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run5.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run6.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run7.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run8.pt10num1evt500pim.d16m1y2024.root",
-    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_run9.pt10num1evt500pim.d16m1y2024.root"
+    "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_forCrossCheck.pt10num1evt500pim.d25m1y2024.root"
   };
 
   // weird track parameters
-  const pair<float, float> oddPtFrac = {0.2, 1.2};
+  const pair<float, float> oddPtFrac = {0.5, 1.5};
 
   // lower verbosity
   gErrorIgnoreLevel = kError;
@@ -661,8 +643,8 @@ void MakeOldEvaluatorPlots() {
   const uint32_t nRatBins  = 120;
   const uint32_t nEtaBins  = 80;
   const uint32_t nPhiBins  = 360;
-  const uint32_t nPtBins   = 202;
-  const uint32_t nFracBins = 220;
+  const uint32_t nPtBins   = 101;
+  const uint32_t nFracBins = 110;
 
   // output histogram bin ranges
   const pair<float, float> xNumBins  = {-0.5,  100.5};
@@ -846,6 +828,10 @@ void MakeOldEvaluatorPlots() {
       cout << "      Processing entry " << iRecoProg << "/" << nRecoEntries << "...\r" << flush;
     }
 
+    // skip nan's
+    //   TODO also add option to filter out non-primary tracks
+    if (isnan(rec_gpt)) continue;
+
     // run calculations
     const double rec_ntot   = rec_nintt + rec_nmaps + rec_ntpc;
     const double rec_gntot  = rec_gnintt + rec_gnmaps + rec_gntpc;
@@ -899,6 +885,45 @@ void MakeOldEvaluatorPlots() {
     // fill weird and normal matched reco 1D histograms
     const bool isNormalTrack = ((rec_ptfrac >= oddPtFrac.first) && (rec_ptfrac <= oddPtFrac.second));
     if (isNormalTrack) {
+      vecHist1D[Var::NTot][Type::Normal]  -> Fill(rec_ntot);
+      vecHist1D[Var::NIntt][Type::Normal] -> Fill(rec_nintt);
+      vecHist1D[Var::NMvtx][Type::Normal] -> Fill(rec_nmaps);
+      vecHist1D[Var::NTpc][Type::Normal]  -> Fill(rec_ntpc);
+      vecHist1D[Var::RTot][Type::Normal]  -> Fill(rec_rtot);
+      vecHist1D[Var::RIntt][Type::Normal] -> Fill(rec_rintt);
+      vecHist1D[Var::RMvtx][Type::Normal] -> Fill(rec_rmaps);
+      vecHist1D[Var::RTpc][Type::Normal]  -> Fill(rec_rtpc);
+      vecHist1D[Var::Phi][Type::Normal]   -> Fill(rec_phi);
+      vecHist1D[Var::Eta][Type::Normal]   -> Fill(rec_eta);
+      vecHist1D[Var::Pt][Type::Normal]    -> Fill(rec_pt);
+      vecHist1D[Var::Frac][Type::Normal]  -> Fill(rec_ptfrac);
+
+      vecHist2D[Var::NTot][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_ntot);
+      vecHist2D[Var::NIntt][Type::Normal][Comp::VsTruthPt] -> Fill(rec_gpt, rec_nintt);
+      vecHist2D[Var::NMvtx][Type::Normal][Comp::VsTruthPt] -> Fill(rec_gpt, rec_nmaps);
+      vecHist2D[Var::NTpc][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_ntpc);
+      vecHist2D[Var::RTot][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_rtot);
+      vecHist2D[Var::RIntt][Type::Normal][Comp::VsTruthPt] -> Fill(rec_gpt, rec_rintt);
+      vecHist2D[Var::RMvtx][Type::Normal][Comp::VsTruthPt] -> Fill(rec_gpt, rec_rmaps);
+      vecHist2D[Var::RTpc][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_rtpc);
+      vecHist2D[Var::Phi][Type::Normal][Comp::VsTruthPt]   -> Fill(rec_gpt, rec_phi);
+      vecHist2D[Var::Eta][Type::Normal][Comp::VsTruthPt]   -> Fill(rec_gpt, rec_eta);
+      vecHist2D[Var::Pt][Type::Normal][Comp::VsTruthPt]    -> Fill(rec_gpt, rec_pt);
+      vecHist2D[Var::Frac][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_ptfrac);
+
+      vecHist2D[Var::NTot][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_ntot);
+      vecHist2D[Var::NIntt][Type::Normal][Comp::VsNumTpc] -> Fill(rec_gntpc, rec_nintt);
+      vecHist2D[Var::NMvtx][Type::Normal][Comp::VsNumTpc] -> Fill(rec_gntpc, rec_nmaps);
+      vecHist2D[Var::NTpc][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_ntpc);
+      vecHist2D[Var::RTot][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_rtot);
+      vecHist2D[Var::RIntt][Type::Normal][Comp::VsNumTpc] -> Fill(rec_gntpc, rec_rintt);
+      vecHist2D[Var::RMvtx][Type::Normal][Comp::VsNumTpc] -> Fill(rec_gntpc, rec_rmaps);
+      vecHist2D[Var::RTpc][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_rtpc);
+      vecHist2D[Var::Phi][Type::Normal][Comp::VsNumTpc]   -> Fill(rec_gntpc, rec_phi);
+      vecHist2D[Var::Eta][Type::Normal][Comp::VsNumTpc]   -> Fill(rec_gntpc, rec_eta);
+      vecHist2D[Var::Pt][Type::Normal][Comp::VsNumTpc]    -> Fill(rec_gntpc, rec_pt);
+      vecHist2D[Var::Frac][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_ptfrac);
+    } else {
       vecHist1D[Var::NTot][Type::Weird]  -> Fill(rec_ntot);
       vecHist1D[Var::NIntt][Type::Weird] -> Fill(rec_nintt);
       vecHist1D[Var::NMvtx][Type::Weird] -> Fill(rec_nmaps);
@@ -937,45 +962,6 @@ void MakeOldEvaluatorPlots() {
       vecHist2D[Var::Eta][Type::Weird][Comp::VsNumTpc]   -> Fill(rec_gntpc, rec_eta);
       vecHist2D[Var::Pt][Type::Weird][Comp::VsNumTpc]    -> Fill(rec_gntpc, rec_pt);
       vecHist2D[Var::Frac][Type::Weird][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_ptfrac);
-    } else {
-      vecHist1D[Var::NTot][Type::Normal]  -> Fill(rec_ntot);
-      vecHist1D[Var::NIntt][Type::Normal] -> Fill(rec_nintt);
-      vecHist1D[Var::NMvtx][Type::Normal] -> Fill(rec_nmaps);
-      vecHist1D[Var::NTpc][Type::Normal]  -> Fill(rec_ntpc);
-      vecHist1D[Var::RTot][Type::Normal]  -> Fill(rec_rtot);
-      vecHist1D[Var::RIntt][Type::Normal] -> Fill(rec_rintt);
-      vecHist1D[Var::RMvtx][Type::Normal] -> Fill(rec_rmaps);
-      vecHist1D[Var::RTpc][Type::Normal]  -> Fill(rec_rtpc);
-      vecHist1D[Var::Phi][Type::Normal]   -> Fill(rec_phi);
-      vecHist1D[Var::Eta][Type::Normal]   -> Fill(rec_eta);
-      vecHist1D[Var::Pt][Type::Normal]    -> Fill(rec_pt);
-      vecHist1D[Var::Frac][Type::Normal]  -> Fill(rec_ptfrac);
-
-      vecHist2D[Var::NTot][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_ntot);
-      vecHist2D[Var::NIntt][Type::Normal][Comp::VsTruthPt] -> Fill(rec_gpt, rec_nintt);
-      vecHist2D[Var::NMvtx][Type::Normal][Comp::VsTruthPt] -> Fill(rec_gpt, rec_nmaps);
-      vecHist2D[Var::NTpc][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_ntpc);
-      vecHist2D[Var::RTot][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_rtot);
-      vecHist2D[Var::RIntt][Type::Normal][Comp::VsTruthPt] -> Fill(rec_gpt, rec_rintt);
-      vecHist2D[Var::RMvtx][Type::Normal][Comp::VsTruthPt] -> Fill(rec_gpt, rec_rmaps);
-      vecHist2D[Var::RTpc][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_rtpc);
-      vecHist2D[Var::Phi][Type::Normal][Comp::VsTruthPt]   -> Fill(rec_gpt, rec_phi);
-      vecHist2D[Var::Eta][Type::Normal][Comp::VsTruthPt]   -> Fill(rec_gpt, rec_eta);
-      vecHist2D[Var::Pt][Type::Normal][Comp::VsTruthPt]    -> Fill(rec_gpt, rec_pt);
-      vecHist2D[Var::Frac][Type::Normal][Comp::VsTruthPt]  -> Fill(rec_gpt, rec_ptfrac);
-
-      vecHist2D[Var::NTot][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_ntot);
-      vecHist2D[Var::NIntt][Type::Normal][Comp::VsNumTpc] -> Fill(rec_gntpc, rec_nintt);
-      vecHist2D[Var::NMvtx][Type::Normal][Comp::VsNumTpc] -> Fill(rec_gntpc, rec_nmaps);
-      vecHist2D[Var::NTpc][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_ntpc);
-      vecHist2D[Var::RTot][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_rtpc);
-      vecHist2D[Var::RIntt][Type::Normal][Comp::VsNumTpc] -> Fill(rec_gntpc, rec_rintt);
-      vecHist2D[Var::RMvtx][Type::Normal][Comp::VsNumTpc] -> Fill(rec_gntpc, rec_rmaps);
-      vecHist2D[Var::RTpc][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_rtpc);
-      vecHist2D[Var::Phi][Type::Normal][Comp::VsNumTpc]   -> Fill(rec_gntpc, rec_phi);
-      vecHist2D[Var::Eta][Type::Normal][Comp::VsNumTpc]   -> Fill(rec_gntpc, rec_eta);
-      vecHist2D[Var::Pt][Type::Normal][Comp::VsNumTpc]    -> Fill(rec_gntpc, rec_pt);
-      vecHist2D[Var::Frac][Type::Normal][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_ptfrac);
     }
   }  // end reco track loop
   cout << "    Finished reconstructed track loop."  << endl;
