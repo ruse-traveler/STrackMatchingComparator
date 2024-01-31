@@ -59,7 +59,7 @@ class STrackMatcherComparator {
     void GetNewTreeHists();
     void GetNewTupleHists();
     void GetOldTupleHists();
-    void MakeRatiosAndPlots(const vector<TH1D*> vecNewHists1D, const vector<TH2D*> vecNewHists2D, const int iDir, const string sLabel);
+    void MakeRatiosAndPlots(const vector<vector<TH1D*>> vecNewHists1D, const vector<vector<vector<TH2D*>>> vecNewHists2D, const int iDir, const string sLabel);
     void SaveOutput();
     void CloseInput();
     void CloseOutput();
@@ -67,39 +67,47 @@ class STrackMatcherComparator {
     // configuration
     STrackMatcherComparatorConfig m_config;
 
-    // root members
-    TFile*   m_outFile      = NULL;
-    TFile*   m_treeInFile   = NULL;
-    TFile*   m_tupleInFile  = NULL;
-    TFile*   m_oldInFile    = NULL;
-    TTree*   m_tTreeTrue    = NULL;
-    TTree*   m_tTreeReco    = NULL;
-    TNtuple* m_ntTupleTruth = NULL;
-    TNtuple* m_ntTupleReco  = NULL;
-    TNtuple* m_ntOldTruth   = NULL;
-    TNtuple* m_ntNewTrack   = NULL;
-    TNtuple* m_ntOldTrack   = NULL;
+    // i/o files
+    TFile* m_outFile         = NULL;
+    TFile* m_treeInFileTrue  = NULL;
+    TFile* m_treeInFileReco  = NULL;
+    TFile* m_tupleInFileTrue = NULL;
+    TFile* m_tupleInFileReco = NULL;
+    TFile* m_oldInFileTrue   = NULL;
+    TFile* m_oldInFileReco   = NULL;
+
+    // input trees/tuples
+    TTree*   m_tTreeTrue   = NULL;
+    TTree*   m_tTreeReco   = NULL;
+    TNtuple* m_ntTupleTrue = NULL;
+    TNtuple* m_ntTupleReco = NULL;
+    TNtuple* m_ntOldTrue   = NULL;
+    TNtuple* m_ntOldReco   = NULL;
 
     // output directories
     vector<TDirectory*> m_vecHistDirs;
     vector<TDirectory*> m_vecRatioDirs;
     vector<TDirectory*> m_vecPlotDirs;
 
-    // histogram vectors
-    vector<TH1D*> m_vecTreeHists1D;
-    vector<TH1D*> m_vecTupleHists1D;
-    vector<TH1D*> m_vecOldHists1D;
-    vector<TH2D*> m_vecTreeHists2D;
-    vector<TH2D*> m_vecTupleHists2D;
-    vector<TH2D*> m_vecOldHists2D;
+    // 1d histogram vectors
+    vector<vector<TH1D*>> m_vecTreeHists1D;
+    vector<vector<TH1D*>> m_vecTupleHists1D;
+    vector<vector<TH1D*>> m_vecOldHists1D;
+
+    // 2d histogram vectors
+    vector<vector<vector<TH2D*>>> m_vecTreeHists2D;
+    vector<vector<vector<TH2D*>>> m_vecTupleHists2D;
+    vector<vector<vector<TH2D*>>> m_vecOldHists2D;
 
     // class-wide constants
     struct Consts {
-      size_t nDir;
+      size_t nDirHist;
+      size_t nDirRatio;
+      size_t nDirPlot;
       size_t nVtx;
       size_t nSide;
       size_t nAxes;
-    } m_const = {4, 4, 4, 3};
+    } m_const = {3, 2, 2, 4, 4, 3};
 
     // accessors
     enum Src {

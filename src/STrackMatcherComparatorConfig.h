@@ -40,12 +40,16 @@ struct STrackMatcherComparatorConfig {
   string oldTupleLabel = "OldTuple";
 
   // directory names
-  vector<string> dirNames = {
+  vector<string> histDirNames = {
     "NewTreeHists",
     "NewTupleHists",
-    "OldTupleHists",
+    "OldTupleHists"
+  };
+  vector<string> ratioDirNames = {
     "TreeRatios",
-    "TupleRatios",
+    "TupleRatios"
+  };
+  vector<string> plotDirNames = {
     "TreePlots",
     "TuplePlots"
   };
