@@ -47,9 +47,9 @@ void CompareOldVsNewPlots() {
   // options ------------------------------------------------------------------
 
   // io parameters
-  const string sOutput("oldVsNewComparisonWithNoNorm_oneMatchPerParticle_embedScanOnAndNoNaNAndWithTruthPt_odd05150.pt10n1evt500pim.d25m1y2024.root");
-  const string sInOld("output/jan/oldEvalPlots_oneMatchPerParticle_embedScanOn_noNaNs_oddFrac05150.pt10n1evt500pim.d25m1y2024.root");
-  const string sInNew("output/newMatcherTuplePlots_oneMatchPerParticle_embedScanOn_withActualTruthPt_oddFrac05150.pt10n1evt500pim.d25m1y2024.root");
+  const string sOutput("oldVsNewComparisonWithNoNorm_oneMatchPerParticle_zVtxCutComp_odd05150.pt10n1evt500pim.d1m2y2024.root");
+  const string sInOld("oldEvalPlots_oneMatchPerParticle_embedScanOn_forZVtxCutComp_oddFrac05150.pt10n1evt500pim.d1m2y2024.root");
+  const string sInNew("newMatcherTuplePlots_oneMatchPerParticle_forZVtxCutComp_oddFrac05150.pt10n1evt500pim.d1m2y2024.root");
 
   // style parameters
   const pair<uint32_t, uint32_t> fCol = {923, 899};

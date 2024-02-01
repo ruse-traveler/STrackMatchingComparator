@@ -20,12 +20,18 @@
 
 using namespace std;
 
+// global constants
+static const size_t NSectors = 12;
+
+
+
+// main body of macro ---------------------------------------------------------
 
 
 void MakeOldEvaluatorPlots() {
 
   // io parameters
-  const string         sOutput("oldEvalPlots_oneMatchPerParticle_embedScanOn_noNaNs_oddFrac05150.pt10n1evt500pim.d25m1y2024.root");
+  const string         sOutput("oldEvalPlots_oneMatchPerParticle_embedScanOn_forZVtxCutComp_oddFrac05150.pt10n1evt500pim.d1m2y2024.root");
   const string         sTupleTrue("ntp_gtrack");
   const string         sTupleReco("ntp_track");
   const vector<string> vecInTrue = {
@@ -35,8 +41,31 @@ void MakeOldEvaluatorPlots() {
     "input/merged/sPhenixG4_oneMatchPerParticle_oldEval_forCrossCheck.pt10num1evt500pim.d25m1y2024.root"
   };
 
+  // cut options
+  const bool useOnlyPrimTrks(true);
+  const bool doZVtxCut(true);
+  const bool doPhiCut(false);
+
   // weird track parameters
-  const pair<float, float> oddPtFrac = {0.5, 1.5};
+  const pair<float, float> oddPtFrac = {0.5,  1.5};
+  const pair<float, float> zVtxRange = {-1.,  1.};
+
+  // phi cut parameters
+  const float sigCutVal(0.75);
+  const array<pair<float, float>, NSectors> phiSectors = {
+    make_pair(-2.92, 0.12),
+    make_pair(-2.38, 0.05),
+    make_pair(-1.93, 0.18),
+    make_pair(-1.33, 0.07),
+    make_pair(-0.90, 0.24),
+    make_pair(-0.29, 0.09),
+    make_pair(0.23,  0.11),
+    make_pair(0.73,  0.10),
+    make_pair(1.28,  0.10),
+    make_pair(1.81,  0.08),
+    make_pair(2.23,  0.18),
+    make_pair(2.80,  0.17)
+  };
 
   // lower verbosity
   gErrorIgnoreLevel = kError;
@@ -754,12 +783,33 @@ void MakeOldEvaluatorPlots() {
       cout << "      Processing entry " << iTrueProg << "/" << nTrueEntries << "...\r" << flush;
     }
 
-    // select only primary truth particles
-    const bool isPrimary = ((tru_gprimary == 1) && !isnan(tru_trackID));
-    if (!isPrimary) continue;
+    // skip nan's
+    if (isnan(tru_trackID)) continue;
 
     // run calculations
     const double tru_gntot = tru_gnintt + tru_gnmaps + tru_gntpc;
+
+    // check if near sector
+    bool isNearSector = false;
+    if (doPhiCut) {
+      for (size_t iSector = 0; iSector < NSectors; iSector++) {
+        const float cutVal = sigCutVal * phiSectors[iSector].second;
+        const float minPhi = phiSectors[iSector].first - cutVal;
+        const float maxPhi = phiSectors[iSector].first + cutVal;
+        const bool  isNear = ((tru_gphi >= minPhi) && (tru_gphi <= maxPhi));
+        if (isNear) {
+          isNearSector = true;
+          break;
+        }
+      }  // end sector loop
+    }  // end if (doPhiCut)
+
+    // apply cuts
+    const bool isPrimary   = (tru_gprimary == 1);
+    const bool isInZVtxCut = ((tru_gvz > zVtxRange.first) && (tru_gvz < zVtxRange.second));
+    if (useOnlyPrimTrks && !isPrimary)   continue;
+    if (doZVtxCut       && !isInZVtxCut) continue;
+    if (doPhiCut        && isNearSector) continue;
 
     // fill truth 1D histograms
     vecHist1D[Var::NTot][Type::Truth]  -> Fill(tru_gntot);
@@ -829,7 +879,6 @@ void MakeOldEvaluatorPlots() {
     }
 
     // skip nan's
-    //   TODO also add option to filter out non-primary tracks
     if (isnan(rec_gpt)) continue;
 
     // run calculations
@@ -840,6 +889,28 @@ void MakeOldEvaluatorPlots() {
     const double rec_rmaps  = rec_nmaps / rec_gnmaps;
     const double rec_rtpc   = rec_ntpc / rec_gntpc;
     const double rec_ptfrac = rec_pt / rec_gpt;
+
+    // check if near sector
+    bool isNearSector = false;
+    if (doPhiCut) {
+      for (size_t iSector = 0; iSector < NSectors; iSector++) {
+       const float cutVal = sigCutVal * phiSectors[iSector].second;
+        const float minPhi = phiSectors[iSector].first - cutVal;
+        const float maxPhi = phiSectors[iSector].first + cutVal;
+        const bool  isNear = ((rec_phi >= minPhi) && (rec_phi <= maxPhi));
+        if (isNear) {
+          isNearSector = true;
+          break;
+        }
+      }  // end sector loop
+    }  // end if (doPhiCut)
+
+    // apply cuts
+    const bool isPrimary   = (rec_gprimary == 1);
+    const bool isInZVtxCut = ((rec_gvz > zVtxRange.first) && (rec_gvz < zVtxRange.second));
+    if (useOnlyPrimTrks && !isPrimary)   continue;
+    if (doZVtxCut       && !isInZVtxCut) continue;
+    if (doPhiCut        && isNearSector) continue;
 
     // fill all matched reco 1D histograms
     vecHist1D[Var::NTot][Type::Track]  -> Fill(rec_ntot);
