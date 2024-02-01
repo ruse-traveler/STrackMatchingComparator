@@ -7,6 +7,7 @@ src/*
 !src/STrackMatcherComparator.cc
 !src/STrackMatcherComparator.h
 !src/STrackMatcherComparatorConfig.h
+!src/STrackMatcherComparatorHistDef.h
 !src/autogen.sh
 !src/configure.ac
 !src/Makefile.am

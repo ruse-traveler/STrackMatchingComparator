@@ -14,6 +14,7 @@
 #include <vector>
 // analysis utilities
 #include "/sphenix/user/danderson/install/include/strackmatchercomparator/STrackMatcherComparatorConfig.h"
+#include "/sphenix/user/danderson/install/include/strackmatchercomparator/STrackMatcherComparatorHistDef.h"
 
 // make common namespaces implicit
 using namespace std;
@@ -26,6 +27,7 @@ namespace MatcherComparatorOptions {
 
   STrackMatcherComparatorConfig GetConfig() {
 
+    // simulation info
     const vector<string> cfg_info = {
       "#bf{#it{sPHENIX}} Simulation",
       "1 #pi^{-}/event, p_{T} = 10 GeV/c",
@@ -44,6 +46,25 @@ namespace MatcherComparatorOptions {
     return cfg;
 
   }  // end 'GetConfig()'
+
+
+
+  // set up histogram definition ----------------------------------------------
+
+  STrackMatcherComparatorHistDef GetHistDef() {
+
+    // no. of histogram bins
+    const uint32_t def_nPtBins = 101;
+
+    // histogram bin ranges
+    const pair<float, float> def_xPtBins = {-0.5, 100.5};
+
+    STrackMatcherComparatorHistDef def;
+    def.nPtBins = def_nPtBins;
+    def.xPtBins = def_xPtBins;
+    return def;
+
+  }  // end 'GetHistDef()'
 
 }  // end MatcherComparatorOptions namespace
 
