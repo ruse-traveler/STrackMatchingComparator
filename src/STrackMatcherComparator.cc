@@ -29,6 +29,7 @@
 // analysis utilities
 #include "STrackMatcherComparator.h"
 #include "STrackMatcherComparatorConfig.h"
+#include "STrackMatcherComparatorHistDef.h"
 
 // make common namespaces implicit
 using namespace std;
@@ -42,6 +43,17 @@ STrackMatcherComparator::STrackMatcherComparator(optional<STrackMatcherComparato
   if (config.has_value()) {
     m_config = config.value();
   }
+
+  // make sure vectors are empty
+  m_vecHistDirs.clear();
+  m_vecRatioDirs.clear();
+  m_vecPlotDirs.clear();
+  m_vecTreeHists1D.clear();
+  m_vecTupleHists1D.clear();
+  m_vecOldHists1D.clear();
+  m_vecTreeHists2D.clear();
+  m_vecTupleHists2D.clear();
+  m_vecOldHists2D.clear();
 
 }  // end ctor
 
@@ -121,9 +133,9 @@ void STrackMatcherComparator::OpenOutput() {
   cout << "      Opened output file." << endl;
 
   // create output directories
-  m_vecHistDirs.reserve(m_const.nDirHist);
-  m_vecRatioDirs.reserve(m_const.nDirRatio);
-  m_vecPlotDirs.reserve(m_const.nDirPlot);
+  m_vecHistDirs.resize(m_const.nDirHist);
+  m_vecRatioDirs.resize(m_const.nDirRatio);
+  m_vecPlotDirs.resize(m_const.nDirPlot);
 
   m_vecHistDirs[Src::NewTree]   = (TDirectory*) m_outFile -> mkdir(m_config.histDirNames.at(Src::NewTree).data());
   m_vecHistDirs[Src::NewTuple]  = (TDirectory*) m_outFile -> mkdir(m_config.histDirNames.at(Src::NewTuple).data());
@@ -218,31 +230,84 @@ void STrackMatcherComparator::InitHists() {
   vector<tuple<uint32_t, pair<float, float>>> vecBaseHistBins = m_hist.GetVecHistBins();
   vector<tuple<uint32_t, pair<float, float>>> vecVsHistBins   = m_hist.GetVecVsHistBins();
 
-  // make 1D base histograms
-  vector<vector<TH1D*>> vecBaseHist1D(nHistRows);
+  // turn on errors
+  TH1::SetDefaultSumw2(true);
+  TH2::SetDefaultSumw2(true);
+
+  // set up 1d output histograms
+  m_vecTreeHists1D.resize(nHistRows);
+  m_vecTupleHists1D.resize(nHistRows);
+  m_vecOldHists1D.resize(nHistRows);
   for (size_t iHistRow = 0; iHistRow < nHistRows; iHistRow++) {
-    for (string sHistBase : m_hist.vecNameBase[iHistRow]) {
-      vecBaseHist1D[iHistRow].push_back(
+    for (size_t iHistType = 0; iHistType < nHistTypes; iHistType++) {
+
+      // create names
+      const string sTreeHist1D  = m_hist.vecNameBase[iHistRow][iHistType] + "_" + m_config.newTreeLabel;
+      const string sTupleHist1D = m_hist.vecNameBase[iHistRow][iHistType] + "_" + m_config.newTupleLabel;
+      const string sOldHist1D   = m_hist.vecNameBase[iHistRow][iHistType] + "_" + m_config.oldTupleLabel;
+
+      // create output histograms
+      m_vecTreeHists1D[iHistRow].push_back(
         new TH1D(
-          sHistBase.data(),
+          sTreeHist1D.data(),
           "",
           get<0>(vecBaseHistBins[iHistRow]),
           get<1>(vecBaseHistBins[iHistRow]).first,
           get<1>(vecBaseHistBins[iHistRow]).second
         )
       );
+      m_vecTupleHists1D[iHistRow].push_back(
+        new TH1D(
+          sTupleHist1D.data(),
+          "",
+          get<0>(vecBaseHistBins[iHistRow]),
+          get<1>(vecBaseHistBins[iHistRow]).first,
+          get<1>(vecBaseHistBins[iHistRow]).second
+        )
+      );
+      m_vecOldHists1D[iHistRow].push_back(
+        new TH1D(
+          sOldHist1D.data(),
+          "",
+          get<0>(vecBaseHistBins[iHistRow]),
+          get<1>(vecBaseHistBins[iHistRow]).first,
+          get<1>(vecBaseHistBins[iHistRow]).second
+        )
+      );
+
+      // set axis titles
+      m_vecTreeHists1D[iHistRow].back()  -> GetXaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iHistRow).data());
+      m_vecTupleHists1D[iHistRow].back() -> GetXaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iHistRow).data());
+      m_vecOldHists1D[iHistRow].back()   -> GetXaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iHistRow).data());
+      m_vecTreeHists1D[iHistRow].back()  -> GetYaxis() -> SetTitle(m_config.count.data());
+      m_vecTupleHists1D[iHistRow].back() -> GetYaxis() -> SetTitle(m_config.count.data());
+      m_vecOldHists1D[iHistRow].back()   -> GetYaxis() -> SetTitle(m_config.count.data());
     }  // end type loop
   }  // end row loop
+  cout << "      Initialized 1D histograms." << endl;
 
-  // make 2D base histograms
-  vector<vector<vector<TH2D*>>> vecBaseHist2D(nHistRows, vector<vector<TH2D*>>(nHistTypes));
+  // set up 2d output histograms
+  m_vecTreeHists2D.resize(nHistRows);
+  m_vecTupleHists2D.resize(nHistRows);
+  m_vecOldHists2D.resize(nHistRows);
   for (size_t iHistRow = 0; iHistRow < nHistRows; iHistRow++) {
+
+    // reserve space for all histograms in row
+    m_vecTreeHists2D[iHistRow].resize(nHistTypes);
+    m_vecTupleHists2D[iHistRow].resize(nHistTypes);
+    m_vecOldHists2D[iHistRow].resize(nHistTypes);
     for (size_t iHistType = 0; iHistType < nHistTypes; iHistType++) {
       for (size_t iVsHistMod = 0; iVsHistMod < nVsHistMods; iVsHistMod++) {
-        const string sHistName2D = m_hist.vecNameBase[iHistRow][iHistType] + m_hist.vecVsModifiers[iVsHistMod];
-        vecBaseHist2D[iHistRow][iHistType].push_back(
+
+        // create names
+        const string sTreeHist2D  = m_hist.vecNameBase[iHistRow][iHistType] + m_hist.vecVsModifiers[iVsHistMod] + "_" + m_config.newTreeLabel;
+        const string sTupleHist2D = m_hist.vecNameBase[iHistRow][iHistType] + m_hist.vecVsModifiers[iVsHistMod] + "_" + m_config.newTupleLabel;
+        const string sOldHist2D   = m_hist.vecNameBase[iHistRow][iHistType] + m_hist.vecVsModifiers[iVsHistMod] + "_" + m_config.oldTupleLabel;
+
+        // create output histograms
+        m_vecTreeHists2D[iHistRow][iHistType].push_back(
           new TH2D(
-            sHistName2D.data(),
+            sTreeHist2D.data(),
             "",
             get<0>(vecVsHistBins[iVsHistMod]),
             get<1>(vecVsHistBins[iVsHistMod]).first,
@@ -252,126 +317,47 @@ void STrackMatcherComparator::InitHists() {
             get<1>(vecBaseHistBins[iHistRow]).second
           )
         );
-      }  // end modifier loop
-    }  // end type loop
-  }  // end row loop
+        m_vecTupleHists2D[iHistRow][iHistType].push_back(
+          new TH2D(
+            sTupleHist2D.data(),
+            "",
+            get<0>(vecVsHistBins[iVsHistMod]),
+            get<1>(vecVsHistBins[iVsHistMod]).first,
+            get<1>(vecVsHistBins[iVsHistMod]).second,
+            get<0>(vecBaseHistBins[iHistRow]),
+            get<1>(vecBaseHistBins[iHistRow]).first,
+            get<1>(vecBaseHistBins[iHistRow]).second
+          )
+        );
+        m_vecOldHists2D[iHistRow][iHistType].push_back(
+          new TH2D(
+            sOldHist2D.data(),
+            "",
+            get<0>(vecVsHistBins[iVsHistMod]),
+            get<1>(vecVsHistBins[iVsHistMod]).first,
+            get<1>(vecVsHistBins[iVsHistMod]).second,
+            get<0>(vecBaseHistBins[iHistRow]),
+            get<1>(vecBaseHistBins[iHistRow]).first,
+            get<1>(vecBaseHistBins[iHistRow]).second
+          )
+        );
 
-  // set errors
-  for (auto histRow1D : vecBaseHist1D) {
-    for (auto hist1D : histRow1D) {
-      hist1D -> Sumw2();
-    }
-  }
-
-  for (auto histRow2D : vecBaseHist2D) {
-    for (auto histType2D : histRow2D) {
-      for (auto hist2D: histType2D) {
-        hist2D -> Sumw2();
-      }
-    }
-  }
-
-  // set axis titles
-  size_t iVar = 0;
-  for (auto histRow1D : vecBaseHist1D) {
-    for (auto hist1D : histRow1D) {
-      hist1D -> GetXaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iVar).data());
-      hist1D -> GetYaxis() -> SetTitle(m_config.count.data());
-    }
-    ++iVar;
-  }
-  iVar = 0;
-
-  size_t iComp = 0;
-  for (auto histRow2D : vecBaseHist2D) {
-    for (auto histType2D : histRow2D) {
-      iComp = 0;
-      for (auto hist2D : histType2D) {
-        hist2D -> GetXaxis() -> SetTitle(m_hist.vecVsAxisVars.at(iComp).data());
-        hist2D -> GetYaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iVar).data());
-        hist2D -> GetZaxis() -> SetTitle(m_config.count.data());
-        ++iComp;
-      }
-    }
-    ++iVar;
-  }
-  cout << "      Initialized base histograms." << endl;
-
-  // set up 1d output histograms
-  m_vecTreeHists1D.reserve(nHistRows);
-  m_vecTupleHists1D.reserve(nHistRows);
-  m_vecOldHists1D.reserve(nHistRows);
-  for (size_t iHistRow = 0; iHistRow < nHistRows; iHistRow++) {
-
-    // reserve space for all histograms in row
-    m_vecTreeHists1D[iHistRow].reserve(nHistTypes);
-    m_vecTupleHists1D[iHistRow].reserve(nHistTypes);
-    m_vecOldHists1D[iHistRow].reserve(nHistTypes);
-    for (size_t iHistType = 0; iHistType < nHistTypes; iHistType++) {
-
-      // create names
-      TString sTreeHist1D  = vecBaseHist1D[iHistRow][iHistType] -> GetName();
-      TString sTupleHist1D = vecBaseHist1D[iHistRow][iHistType] -> GetName();
-      TString sOldHist1D   = vecBaseHist1D[iHistRow][iHistType] -> GetName();
-      sTreeHist1D  += "_";
-      sTupleHist1D += "_";
-      sOldHist1D   += "_";
-      sTreeHist1D  += m_config.newTreeLabel;
-      sTupleHist1D += m_config.newTupleLabel;
-      sOldHist1D   += m_config.oldTupleLabel;
-
-      // create output histograms
-      m_vecTreeHists1D[iHistRow][iHistType]  = (TH1D*) vecBaseHist1D[iHistRow][iHistType] -> Clone();
-      m_vecTupleHists1D[iHistRow][iHistType] = (TH1D*) vecBaseHist1D[iHistRow][iHistType] -> Clone();
-      m_vecOldHists1D[iHistRow][iHistType]   = (TH1D*) vecBaseHist1D[iHistRow][iHistType] -> Clone();
-      m_vecTreeHists1D[iHistRow][iHistType]  -> SetName(sTreeHist1D.Data()); 
-      m_vecTupleHists1D[iHistRow][iHistType] -> SetName(sTupleHist1D.Data());
-      m_vecOldHists1D[iHistRow][iHistType]   -> SetName(sOldHist1D.Data());
-    }  // end type loop
-  }  // end row loop
-
-  // set up 2d output histograms
-  m_vecTreeHists2D.reserve(nHistRows);
-  m_vecTupleHists2D.reserve(nHistRows);
-  m_vecOldHists2D.reserve(nHistRows);
-  for (size_t iHistRow = 0; iHistRow < nHistRows; iHistRow++) {
-
-    // reserve space for all histograms in row
-    m_vecTreeHists2D[iHistRow].reserve(nHistTypes);
-    m_vecTupleHists2D[iHistRow].reserve(nHistTypes);
-    m_vecOldHists2D[iHistRow].reserve(nHistTypes);
-    for (size_t iHistType = 0; iHistType < nHistTypes; iHistType++) {
-
-      // reserve space for all vs. modifiers
-      m_vecTreeHists2D[iHistRow][iHistType].reserve(nVsHistMods);
-      m_vecTupleHists2D[iHistRow][iHistType].reserve(nVsHistMods);
-      m_vecOldHists2D[iHistRow][iHistType].reserve(nVsHistMods);
-      for (size_t iVsHistMod = 0; iVsHistMod < nVsHistMods; iVsHistMod++) {
-
-        // create names
-        TString sTreeHist2D  = vecBaseHist2D[iHistRow][iHistType][iVsHistMod] -> GetName();
-        TString sTupleHist2D = vecBaseHist2D[iHistRow][iHistType][iVsHistMod] -> GetName();
-        TString sOldHist2D   = vecBaseHist2D[iHistRow][iHistType][iVsHistMod] -> GetName();
-        sTreeHist2D  += "_";
-        sTupleHist2D += "_";
-        sOldHist2D   += "_";
-        sTreeHist2D  += m_config.newTreeLabel;
-        sTupleHist2D += m_config.newTupleLabel;
-        sOldHist2D   += m_config.oldTupleLabel;
-
-        // create output histograms
-        m_vecTreeHists2D[iHistRow][iHistType][iVsHistMod]  = (TH2D*) vecBaseHist2D[iHistRow][iHistType][iVsHistMod] -> Clone();
-        m_vecTupleHists2D[iHistRow][iHistType][iVsHistMod] = (TH2D*) vecBaseHist2D[iHistRow][iHistType][iVsHistMod] -> Clone();
-        m_vecOldHists2D[iHistRow][iHistType][iVsHistMod]   = (TH2D*) vecBaseHist2D[iHistRow][iHistType][iVsHistMod] -> Clone();
-        m_vecTreeHists2D[iHistRow][iHistType][iVsHistMod]  -> SetName(sTreeHist2D.Data()); 
-        m_vecTupleHists2D[iHistRow][iHistType][iVsHistMod] -> SetName(sTupleHist2D.Data());
-        m_vecOldHists2D[iHistRow][iHistType][iVsHistMod]   -> SetName(sOldHist2D.Data());
+        // set axis titles
+        m_vecTreeHists2D[iHistRow][iHistType].back()  -> GetXaxis() -> SetTitle(m_hist.vecVsAxisVars.at(iVsHistMod).data());
+        m_vecTupleHists2D[iHistRow][iHistType].back() -> GetXaxis() -> SetTitle(m_hist.vecVsAxisVars.at(iVsHistMod).data());
+        m_vecOldHists2D[iHistRow][iHistType].back()   -> GetXaxis() -> SetTitle(m_hist.vecVsAxisVars.at(iVsHistMod).data());
+        m_vecTreeHists2D[iHistRow][iHistType].back()  -> GetYaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iHistRow).data());
+        m_vecTupleHists2D[iHistRow][iHistType].back() -> GetYaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iHistRow).data());
+        m_vecOldHists2D[iHistRow][iHistType].back()   -> GetYaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iHistRow).data());
+        m_vecTreeHists2D[iHistRow][iHistType].back()  -> GetZaxis() -> SetTitle(m_config.count.data());
+        m_vecTupleHists2D[iHistRow][iHistType].back() -> GetZaxis() -> SetTitle(m_config.count.data());
+        m_vecOldHists2D[iHistRow][iHistType].back()   -> GetZaxis() -> SetTitle(m_config.count.data());
       }  // end modifier loop
     }  // end type loop
   }  // end row loop
 
   // announce end and exit
-  cout << "      Initialized output histograms." << endl;
+  cout << "      Initialized 2D output histograms." << endl;
   return;
 
 }  // end 'InitHists()'
@@ -1910,190 +1896,27 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   // create 1d canvas names
   vector<vector<string>> vecCanvasNames1D(nHistRows1D);
   for (size_t iHistRow1D = 0; iHistRow1D < nHistRows1D; iHistRow1D++) {
-    vecCanvasNames1D[iHistRow1D].reserve(nHistTypes1D);
+    vecCanvasNames1D[iHistRow1D].resize(nHistTypes1D);
     for (size_t iHistType1D = 0; iHistType1D < nHistTypes1D; iHistType1D++) {
-
-      // get base
       vecCanvasNames1D[iHistRow1D][iHistType1D] = m_hist.vecNameBase[iHistRow1D][iHistType1D];
-
-      // replace h prefix w/ c
       vecCanvasNames1D[iHistRow1D][iHistType1D].replace(0, 1, "c");
-      cout << "CHECK0: name = " << vecCanvasNames1D[iHistRow1D][iHistType1D] << endl;
     }
   }
 
   // create 2d canvas names
   vector<vector<vector<string>>> vecCanvasNames2D(nHistRows2D);
   for (size_t iHistRow2D = 0; iHistRow2D < nHistRows2D; iHistRow2D++) {
-    vecCanvasNames2D[iHistRow2D].reserve(nHistRows2D);
+    vecCanvasNames2D[iHistRow2D].resize(nHistRows2D);
     for (size_t iHistType2D = 0; iHistType2D < nHistTypes2D; iHistType2D++) {
-      vecCanvasNames2D[iHistRow2D][iHistType2D].reserve(nHist2D);
+      vecCanvasNames2D[iHistRow2D][iHistType2D].resize(nHist2D);
       for (size_t iHist2D = 0; iHist2D < nHist2D; iHist2D++) {
-
-        // get base
         vecCanvasNames2D[iHistRow2D][iHistType2D][iHist2D] = m_hist.vecNameBase[iHistRow2D][iHistType2D];
         vecCanvasNames2D[iHistRow2D][iHistType2D][iHist2D] += m_hist.vecVsModifiers[iHist2D];
-
-        // replace h prefix 2/ c
         vecCanvasNames2D[iHistRow2D][iHistType2D][iHist2D].replace(0, 1, "c");
-        cout << "CHECK1: name = " << vecCanvasNames2D[iHistRow2D][iHistType2D][iHist2D] << endl;
-
       }
     }
   }
   cout << "        Set up canvas names." << endl;
-
-/*
-  // canvas names
-  vector<string> vecCanvasNames1D = {
-    "cTruthNumTot",
-    "cTrackNumTot",
-    "cWeirdNumTot",
-    "cNormNumTot",
-    "cTruthNumIntt",
-    "cTrackNumIntt",
-    "cWeirdNumIntt",
-    "cNormNumIntt",
-    "cTruthNumMvtx",
-    "cTrackNumMvtx",
-    "cWeirdNumMvtx",
-    "cNormNumMvtx",
-    "cTruthNumTpc",
-    "cTrackNumTpc",
-    "cWeirdNumTpc",
-    "cNormNumTpc",
-    "cTruthRatTot",
-    "cTrackRatTot",
-    "cWeirdRatTot",
-    "cNormRatTot",
-    "cTruthRatIntt",
-    "cTrackRatIntt",
-    "cWeirdRatIntt",
-    "cNormRatIntt",
-    "cTruthRatMvtx",
-    "cTrackRatMvtx",
-    "cWeirdRatMvtx",
-    "cNormRatMvtx",
-    "cTruthRatTpc",
-    "cTrackRatTpc",
-    "cWeirdRatTpc",
-    "cNormRatTpc",
-    "cTruthPhi",
-    "cTrackPhi",
-    "cWeirdPhi",
-    "cNormPhi",
-    "cTruthEta",
-    "cTrackEta",
-    "cWeirdEta",
-    "cNormEta",
-    "cTruthPt",
-    "cTrackPt",
-    "cWeirdPt",
-    "cNormPt",
-    "cTruthFrac",
-    "cTrackFrac",
-    "cWeirdFrac",
-    "cNormFrac"
-  };
-  vector<string> vecCanvasNames2D = {
-    "cTruthNumTotVsTruthPt",
-    "cTruthNumTotVsNumTpc",
-    "cTrackNumTotVsTruthPt",
-    "cTrackNumTotVsNumTpc",
-    "cWeirdNumTotVsTruthPt",
-    "cWeirdNumTotVsNumTpc",
-    "cNormNumTotVsTruthPt",
-    "cNormNumTotVsNumTpc",
-    "cTruthNumInttVsTruthPt",
-    "cTruthNumInttVsNumTpc",
-    "cTrackNumInttVsTruthPt",
-    "cTrackNumInttVsNumTpc",
-    "cWeirdNumInttVsTruthPt",
-    "cWeirdNumInttVsNumTpc",
-    "cNormNumInttVsTruthPt",
-    "cNormNumInttVsNumTpc",
-    "cTruthNumMvtxVsTruthPt",
-    "cTruthNumMvtxVsNumTpc",
-    "cTrackNumMvtxVsTruthPt",
-    "cTrackNumMvtxVsNumTpc",
-    "cWeirdNumMvtxVsTruthPt",
-    "cWeirdNumMvtxVsNumTpc",
-    "cNormNumMvtxVsTruthPt",
-    "cNormNumMvtxVsNumTpc",
-    "cTruthNumTpcVsTruthPt",
-    "cTruthNumTpcVsNumTpc",
-    "cTrackNumTpcVsTruthPt",
-    "cTrackNumTpcVsNumTpc",
-    "cWeirdNumTpcVsTruthPt",
-    "cWeirdNumTpcVsNumTpc",
-    "cNormNumTpcVsTruthPt",
-    "cNormNumTpcVsNumTpc",
-    "cTruthRatTotVsTruthPt",
-    "cTruthRatTotVsNumTpc",
-    "cTrackRatTotVsTruthPt",
-    "cTrackRatTotVsNumTpc",
-    "cWeirdRatTotVsTruthPt",
-    "cWeirdRatTotVsNumTpc",
-    "cNormRatTotVsTruthPt",
-    "cNormRatTotVsNumTpc",
-    "cTruthRatInttVsTruthPt",
-    "cTruthRatInttVsNumTpc",
-    "cTrackRatInttVsTruthPt",
-    "cTrackRatInttVsNumTpc",
-    "cWeirdRatInttVsTruthPt",
-    "cWeirdRatInttVsNumTpc",
-    "cNormRatInttVsTruthPt",
-    "cNormRatInttVsNumTpc",
-    "cTruthRatMvtxVsTruthPt",
-    "cTruthRatMvtxVsNumTpc",
-    "cTrackRatMvtxVsTruthPt",
-    "cTrackRatMvtxVsNumTpc",
-    "cWeirdRatMvtxVsTruthPt",
-    "cWeirdRatMvtxVsNumTpc",
-    "cNormRatMvtxVsTruthPt",
-    "cNormRatMvtxVsNumTpc",
-    "cTruthRatTpcVsTruthPt",
-    "cTruthRatTpcVsNumTpc",
-    "cTrackRatTpcVsTruthPt",
-    "cTrackRatTpcVsNumTpc",
-    "cWeirdRatTpcVsTruthPt",
-    "cWeirdRatTpcVsNumTpc",
-    "cNormRatTpcVsTruthPt",
-    "cNormRatTpcVsNumTpc",
-    "cTruthPhiVsTruthPt",
-    "cTruthPhiVsNumTpc",
-    "cTrackPhiVsTruthPt",
-    "cTrackPhiVsNumTpc",
-    "cWeirdPhiVsTruthPt",
-    "cWeirdPhiVsNumTpc",
-    "cNormPhiVsTruthPt",
-    "cNormPhiVsNumTpc",
-    "cTruthEtaVsTruthPt",
-    "cTruthEtaVsNumTpc",
-    "cTrackEtaVsTruthPt",
-    "cTrackEtaVsNumTpc",
-    "cWeirdEtaVsTruthPt",
-    "cWeirdEtaVsNumTpc",
-    "cNormEtaVsTruthPt",
-    "cNormEtaVsNumTpc",
-    "cTruthPtVsTruthPt",
-    "cTruthPtVsNumTpc",
-    "cTrackPtVsTruthPt",
-    "cTrackPtVsNumTpc",
-    "cWeirdPtVsTruthPt",
-    "cWeirdPtVsNumTpc",
-    "cNormPtVsTruthPt",
-    "cNormPtVsNumTpc",
-    "cTruthFracVsTruthPt",
-    "cTruthFracVsNumTpc",
-    "cTrackFracVsTruthPt",
-    "cTrackFracVsNumTpc",
-    "cWeirdFracVsTruthPt",
-    "cWeirdFracVsNumTpc",
-    "cNormFracVsTruthPt",
-    "cNormFracVsNumTpc"
-  };
-*/
 
   // normalize histograms and set axes' ranges as needed ----------------------
 
@@ -2170,7 +1993,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   // calculate 1d ratios
   vector<vector<TH1D*>> vecRatios1D(nHistRows1D);
   for (size_t iHistRow1D = 0; iHistRow1D < nHistRows1D; iHistRow1D++) {
-    vecRatios1D[iHistRow1D].reserve(nHistTypes1D);
+    vecRatios1D[iHistRow1D].resize(nHistTypes1D);
     for (size_t iHist1D = 0; iHist1D < nHistTypes1D; iHist1D++) {
 
       // make histogram name
@@ -2188,9 +2011,9 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   // calculate 2d ratios
   vector<vector<vector<TH2D*>>> vecRatios2D(nHistRows2D);
   for (size_t iHistRow2D = 0; iHistRow2D < nHistRows2D; iHistRow2D++) {
-    vecRatios2D[iHistRow2D].reserve(nHistTypes2D);
+    vecRatios2D[iHistRow2D].resize(nHistTypes2D);
     for (size_t iHistType2D = 0; iHistType2D < nHistTypes2D; iHistType2D++) {
-      vecRatios2D[iHistRow2D][iHistType2D].reserve(nHist2D);
+      vecRatios2D[iHistRow2D][iHistType2D].resize(nHist2D);
       for (size_t iHist2D = 0; iHist2D < nHist2D; iHist2D++) {
 
         // make histogram name

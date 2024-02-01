@@ -20,7 +20,7 @@
 #include <TDirectory.h>
 // analysis utilities
 #include "STrackMatcherComparatorConfig.h"
-#include "STrackMatcherComparatorHistBase.h"
+#include "STrackMatcherComparatorHistDef.h"
 
 // make common namespaces implicit
 using namespace std;
@@ -46,10 +46,12 @@ class STrackMatcherComparator {
     void End();
 
      // setters
-     void SetConfig(STrackMatcherComparatorConfig& config) {m_config = config;}
+     void SetConfig(STrackMatcherComparatorConfig& config)  {m_config = config;}
+     void SetHistDef(STrackMatcherComparatorHistDef& histo) {m_hist = histo;}
 
      // getters
-     STrackMatcherComparatorConfig GetConfig() {return m_config;}
+     STrackMatcherComparatorConfig  GetConfig()  {return m_config;}
+     STrackMatcherComparatorHistDef GetHistDef() {return m_hist;}
 
    private:
 
@@ -66,8 +68,8 @@ class STrackMatcherComparator {
     void CloseOutput();
 
     // configuration & histogram info
-    STrackMatcherComparatorConfig   m_config;
-    STrackMatcherComparatorHistBase m_hist;
+    STrackMatcherComparatorConfig  m_config;
+    STrackMatcherComparatorHistDef m_hist;
 
     // i/o files
     TFile* m_outFile         = NULL;
