@@ -29,10 +29,12 @@ struct STrackMatcherComparatorConfig {
   string oldInFileName = "";
 
   // tree/tuple options
-  string newInTreeName  = "";
-  string newInTupleName = "";
-  string oldInTruthName = "";
-  string oldInTrackName = "";
+  string newTreeTrueName  = "T";
+  string newTreeRecoName  = "T";
+  string newTupleTrueName = "ntForEvalComp";
+  string newTupleRecoName = "ntForEvalComp";
+  string oldTupleTrueName = "ntp_gtrack";
+  string oldTupleRecoName = "ntp_track";
 
   // histogram labels
   string newTreeLabel  = "NewTree";

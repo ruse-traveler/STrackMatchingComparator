@@ -37,10 +37,10 @@ using namespace std;
 
 // ctor/dtor ------------------------------------------------------------------
 
-STrackMatcherComparator::STrackMatcherComparator(optional<STrackMatcherComparatorConfig> config = nullopt) {
+STrackMatcherComparator::STrackMatcherComparator(optional<STrackMatcherComparatorConfig> config) {
 
   if (config.has_value()) {
-    m_config = config;
+    m_config = config.value();
   }
 
 }  // end ctor
@@ -89,7 +89,7 @@ void STrackMatcherComparator::Analyze() {
 
 
 
-int STrackMatcherComparator::End() {
+void STrackMatcherComparator::End() {
 
   // announce end
   cout << "    End:" << endl;
@@ -113,7 +113,7 @@ int STrackMatcherComparator::End() {
 void STrackMatcherComparator::OpenOutput() {
 
   // open output files
-  m_outFile = new TFile(m_config.outFineName.data(), "recreate");
+  m_outFile = new TFile(m_config.outFileName.data(), "recreate");
   if (!m_outFile) {
     cerr << "PANIC: couldn't open output file!" << endl;
     assert(m_outFile);
@@ -129,7 +129,7 @@ void STrackMatcherComparator::OpenOutput() {
   m_vecHistDirs[Src::NewTuple]  = (TDirectory*) m_outFile -> mkdir(m_config.histDirNames.at(Src::NewTuple).data());
   m_vecHistDirs[Src::OldTuple]  = (TDirectory*) m_outFile -> mkdir(m_config.histDirNames.at(Src::OldTuple).data());
   m_vecRatioDirs[Src::NewTree]  = (TDirectory*) m_outFile -> mkdir(m_config.ratioDirNames.at(Src::NewTree).data());
-  m_vecRatioDIrs[Src::NewTuple] = (TDirectory*) m_outFile -> mkdir(m_config.ratioDirNames.at(Src::NewTuple).data());
+  m_vecRatioDirs[Src::NewTuple] = (TDirectory*) m_outFile -> mkdir(m_config.ratioDirNames.at(Src::NewTuple).data());
   m_vecPlotDirs[Src::NewTree]   = (TDirectory*) m_outFile -> mkdir(m_config.plotDirNames.at(Src::NewTree).data());
   m_vecPlotDirs[Src::NewTuple]  = (TDirectory*) m_outFile -> mkdir(m_config.plotDirNames.at(Src::NewTuple).data());
 
@@ -172,11 +172,34 @@ void STrackMatcherComparator::OpenInput() {
   cout << "      Opened reco input files." << endl;
 
   // grab true input trees/tuples
-  m_tTreeTrue   = (TTree*)   m_treeInFileTrue  -> Get(
-  m_ntTupleTrue = (TNtuple*) m_tupleInFileTrue -> Get(
-  m_ntOldTrue   = (TNtuple*) m_oldInFileTrue   -> Get( 
+  m_tTreeTrue   = (TTree*)   m_treeInFileTrue  -> Get(m_config.newTreeTrueName.data());
+  m_ntTupleTrue = (TNtuple*) m_tupleInFileTrue -> Get(m_config.newTupleTrueName.data());
+  m_ntOldTrue   = (TNtuple*) m_oldInFileTrue   -> Get(m_config.oldTupleTrueName.data());
+  if (!m_tTreeTrue || !m_ntTupleTrue || !m_ntOldTrue) {
+    cerr << "PANIC: couldn't grab an input truth tree/tuple!\n"
+         << "       m_tTreeTrue   = " << m_tTreeTrue   << "\n"
+         << "       m_ntTupleTrue = " << m_ntTupleTrue << "\n"
+         << "       m_ntOldTrue   = " << m_ntOldTrue
+         << endl;
+    assert(m_tTreeTrue && m_ntTupleTrue && m_ntOldTrue);
+  }
+  cout << "      Grabbed input truth trees/tuples." << endl;
 
   // grab reco input trees/tuples
+  m_tTreeReco   = (TTree*)   m_treeInFileReco  -> Get(m_config.newTreeRecoName.data());
+  m_ntTupleReco = (TNtuple*) m_tupleInFileReco -> Get(m_config.newTupleRecoName.data());
+  m_ntOldReco   = (TNtuple*) m_oldInFileReco   -> Get(m_config.oldTupleRecoName.data());
+  if (!m_tTreeReco || !m_ntTupleReco || !m_ntOldReco) {
+    cerr << "PANIC: couldn't grab an input truth tree/tuple!\n"
+         << "       m_tTreeReco   = " << m_tTreeReco   << "\n"
+         << "       m_ntTupleReco = " << m_ntTupleReco << "\n"
+         << "       m_ntOldReco   = " << m_ntOldReco
+         << endl;
+    assert(m_tTreeReco && m_ntTupleReco && m_ntOldReco);
+  }
+
+  // announce end and return
+  cout << "      Grabbed input truth trees/tuples." << endl;
   return;
 
 }  // end 'OpenInput()'
@@ -186,121 +209,19 @@ void STrackMatcherComparator::OpenInput() {
 void STrackMatcherComparator::InitHists() {
 
   // announce start of routine
+  const size_t nHistRows   = m_hist.vecNameBase.size();
+  const size_t nHistTypes  = m_hist.vecNameBase[0].size();
+  const size_t nVsHistMods = m_hist.vecVsModifiers.size();
   cout << "      Initializing histograms." << endl;
 
-  // output histogram base names
-  const vector<vector<string>> vecHistBase = {
-    {"hTruthNumTot",  "hTrackNumTot",  "hWeirdNumTot",  "hNormNumTot"},
-    {"hTruthNumIntt", "hTrackNumIntt", "hWeirdNumIntt", "hNormNumIntt"},
-    {"hTruthNumMvtx", "hTrackNumMvtx", "hWeirdNumMvtx", "hNormNumMvtx"},
-    {"hTruthNumTpc",  "hTrackNumTpc",  "hWeirdNumTpc",  "hNormNumTpc"},
-    {"hTruthRatTot",  "hTrackRatTot",  "hWeirdRatTot",  "hNormRatTot"},
-    {"hTruthRatIntt", "hTrackRatIntt", "hWeirdRatIntt", "hNormRatIntt"},
-    {"hTruthRatMvtx", "hTrackRatMvtx", "hWeirdRatMvtx", "hNormRatMvtx"},
-    {"hTruthRatTpc",  "hTrackRatTpc",  "hWeirdRatTpc",  "hNormRatTpc"},
-    {"hTruthPhi",     "hTrackPhi",     "hWeirdPhi",     "hNormPhi"},
-    {"hTruthEta",     "hTrackEta",     "hWeirdEta",     "hNormEta"},
-    {"hTruthPt",      "hTrackPt",      "hWeirdPt",      "hNormPt"},
-    {"hTruthFrac",    "hTrackFrac",    "hWeirdFrac",    "hNormFrac"},
-    {"hTruthQual",    "hTrackQual",    "hWeirdQual",    "hNormQual"},
-    {"hTruthPtErr",   "hTrackPtErr",   "hWeirdPtErr",   "hNormPtErr"},
-    {"hTruthEtaErr",  "hTrackEtaErr",  "hWeirdEtaErr",  "hNormEtaErr"},
-    {"hTruthPhiErr",  "hTrackPhiErr",  "hWeirdPhiErr",  "hNormPhiErr"},
-    {"hTruthPtRes",   "hTrackPtRes",   "hWeirdPtRes",   "hNormPtRes"},
-    {"hTruthEtaRes",  "hTrackEtaRes",  "hWeirdEtaRes",  "hNormEtaRes"},
-    {"hTruthPhiRes",  "hTrackPhiRes",  "hWeirdPhiRes",  "hNormPhiRes"}
-  };
-  const size_t nHistRows  = vecHistBase.size();
-  const size_t nHistTypes = vecHistBase[0].size();
-
-  // 2D histogram name modifiers
-  const vector<string> vecVsHistModifiers = {
-    "VsTruthPt",
-    "VsNumTpc"
-  };
-  const size_t nVsHistMods = vecVsHistModifiers.size();
-
-  // axis titles
-  const string         m_config.count("counts");
-  const vector<string> vecBaseAxisVars = {
-    "N^{tot} = N_{hit}^{mvtx} + N_{hit}^{intt} + N_{clust}^{tpc}",
-    "N_{hit}^{intt}",
-    "N_{hit}^{mvtx}",
-    "N_{clust}^{tpc}",
-    "N_{reco}^{tot} / N_{true}^{tot}",
-    "N_{reco}^{intt} / N_{true}^{intt}",
-    "N_{reco}^{mvtx} / N_{true}^{mvtx}",
-    "N_{reco}^{tpc} / N_{true}^{tpc}",
-    "#varphi",
-    "#eta",
-    "p_{T} [GeV/c]",
-    "p_{T}^{reco} / p_{T}^{true}"
-    "#chi^{2} / ndf",
-    "#deltap_{T} / p_{T}^{reco}",
-    "#delta#eta / #eta^{reco}",
-    "#delta#varphi / #varphi^{reco}"
-    "#Deltap_{T} / p_{T}^{true}",
-    "#Delta#eta / #eta^{true}",
-    "#Delta#varphi / #varphi^{true}"
-  };
-  const vector<string> vecVsAxisVars = {
-    "p_{T}^{true} [GeV/c]",
-    "N_{clust}^{tpc}"
-  };
-
-  // output histogram no. of bins
-  const uint32_t nNumBins  = 101;
-  const uint32_t nRatBins  = 120;
-  const uint32_t nEtaBins  = 80;
-  const uint32_t nPhiBins  = 360;
-  const uint32_t nPtBins   = 101;
-  const uint32_t nFracBins = 220;
-  const uint32_t nQualBins = 210;
-  const uint32_t nResBins  = 110;
-
-  // output histogram bin ranges
-  const pair<float, float> xNumBins  = {-0.5,  100.5};
-  const pair<float, float> xRatBins  = {-0.5,  5.5};
-  const pair<float, float> xEtaBins  = {-2.,   2.};
-  const pair<float, float> xPhiBins  = {-3.15, 3.15};
-  const pair<float, float> xPtBins   = {-1.,   100.};
-  const pair<float, float> xFracBins = {-0.5,  10.5};
-  const pair<float, float> xQualBins = {-0.5,  20.5};
-  const pair<float, float> xResBins  = {-5.5,  5.5};
-
   // output histogram base binning definitions
-  vector<tuple<uint32_t, pair<float, float>>> vecBaseHistBins = {
-    make_tuple(nNumBins,  xNumBins),
-    make_tuple(nNumBins,  xNumBins),
-    make_tuple(nNumBins,  xNumBins),
-    make_tuple(nNumBins,  xNumBins),
-    make_tuple(nRatBins,  xRatBins),
-    make_tuple(nRatBins,  xRatBins),
-    make_tuple(nRatBins,  xRatBins),
-    make_tuple(nRatBins,  xRatBins),
-    make_tuple(nPhiBins,  xPhiBins),
-    make_tuple(nEtaBins,  xEtaBins),
-    make_tuple(nPtBins,   xPtBins),
-    make_tuple(nFracBins, xFracBins),
-    make_tuple(nQualBins, xQualBins),
-    make_tuple(nResBins,  xResBins),
-    make_tuple(nResBins,  xResBins),
-    make_tuple(nResBins,  xResBins),
-    make_tuple(nResBins,  xResBins),
-    make_tuple(nResBins,  xResBins),
-    make_tuple(nResBins,  xResBins)
-  };
-
-  // output 2D histogram x-axis binning
-  vector<tuple<uint32_t, pair<float, float>>> vecVsHistBins = {
-    make_tuple(nPtBins,  xPtBins),
-    make_tuple(nNumBins, xNumBins)
-  };
+  vector<tuple<uint32_t, pair<float, float>>> vecBaseHistBins = m_hist.GetVecHistBins();
+  vector<tuple<uint32_t, pair<float, float>>> vecVsHistBins   = m_hist.GetVecVsHistBins();
 
   // make 1D base histograms
   vector<vector<TH1D*>> vecBaseHist1D(nHistRows);
   for (size_t iHistRow = 0; iHistRow < nHistRows; iHistRow++) {
-    for (const string sHistBase : vecBaseHistBase[iHistRow]) {
+    for (string sHistBase : m_hist.vecNameBase[iHistRow]) {
       vecBaseHist1D[iHistRow].push_back(
         new TH1D(
           sHistBase.data(),
@@ -318,7 +239,7 @@ void STrackMatcherComparator::InitHists() {
   for (size_t iHistRow = 0; iHistRow < nHistRows; iHistRow++) {
     for (size_t iHistType = 0; iHistType < nHistTypes; iHistType++) {
       for (size_t iVsHistMod = 0; iVsHistMod < nVsHistMods; iVsHistMod++) {
-        const string sHistName2D = vecBaseHistBase[iHistRow][iHistType] + vecVsHistModifiers[iVsHistMod];
+        const string sHistName2D = m_hist.vecNameBase[iHistRow][iHistType] + m_hist.vecVsModifiers[iVsHistMod];
         vecBaseHist2D[iHistRow][iHistType].push_back(
           new TH2D(
             sHistName2D.data(),
@@ -354,7 +275,7 @@ void STrackMatcherComparator::InitHists() {
   size_t iVar = 0;
   for (auto histRow1D : vecBaseHist1D) {
     for (auto hist1D : histRow1D) {
-      hist1D -> GetXaxis() -> SetTitle(vecBaseAxisVars.at(iVar).data());
+      hist1D -> GetXaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iVar).data());
       hist1D -> GetYaxis() -> SetTitle(m_config.count.data());
     }
     ++iVar;
@@ -366,8 +287,8 @@ void STrackMatcherComparator::InitHists() {
     for (auto histType2D : histRow2D) {
       iComp = 0;
       for (auto hist2D : histType2D) {
-        hist2D -> GetXaxis() -> SetTitle(vecVsAxisVars.at(iComp).data());
-        hist2D -> GetYaxis() -> SetTitle(vecBaseAxisVars.at(iVar).data());
+        hist2D -> GetXaxis() -> SetTitle(m_hist.vecVsAxisVars.at(iComp).data());
+        hist2D -> GetYaxis() -> SetTitle(m_hist.vecBaseAxisVars.at(iVar).data());
         hist2D -> GetZaxis() -> SetTitle(m_config.count.data());
         ++iComp;
       }
@@ -380,7 +301,7 @@ void STrackMatcherComparator::InitHists() {
   m_vecTreeHists1D.reserve(nHistRows);
   m_vecTupleHists1D.reserve(nHistRows);
   m_vecOldHists1D.reserve(nHistRows);
-  for (size_t iHistRow = 0; iHistRow < nHistRows; iHistRow+) {
+  for (size_t iHistRow = 0; iHistRow < nHistRows; iHistRow++) {
 
     // reserve space for all histograms in row
     m_vecTreeHists1D[iHistRow].reserve(nHistTypes);
@@ -1135,8 +1056,8 @@ void STrackMatcherComparator::GetNewTupleHists() {
     m_vecTupleHists2D[Var::Frac][Type::Track][Comp::VsNumTpc]  -> Fill(rec_ntpclust_trkmatcher, rec_ptfrac);
 
     // fill weird and normal matched reco 1D histograms
-    const bool im_config.normalTrack = ((rec_ptfrac >= m_config.oddPtFrac.first) && (rec_ptfrac <= m_config.oddPtFrac.second));
-    if (im_config.normalTrack) {
+    const bool isNormalTrack = ((rec_ptfrac >= m_config.oddPtFrac.first) && (rec_ptfrac <= m_config.oddPtFrac.second));
+    if (isNormalTrack) {
       m_vecTupleHists1D[Var::NTot][Type::Normal]  -> Fill(rec_nclus);
       m_vecTupleHists1D[Var::NIntt][Type::Normal] -> Fill(rec_ninttclust_trkmatcher);
       m_vecTupleHists1D[Var::NMvtx][Type::Normal] -> Fill(rec_nmvtxclust_trkmatcher);
@@ -1879,8 +1800,8 @@ void STrackMatcherComparator::GetOldTupleHists() {
     m_vecOldHists2D[Var::Frac][Type::Track][Comp::VsNumTpc]  -> Fill(rec_gntpc, rec_ptfrac);
 
     // fill weird and normal matched reco 1D histograms
-    const bool im_config.normalTrack = ((rec_ptfrac >= m_config.oddPtFrac.first) && (rec_ptfrac <= m_config.oddPtFrac.second));
-    if (im_config.normalTrack) {
+    const bool isNormalTrack = ((rec_ptfrac >= m_config.oddPtFrac.first) && (rec_ptfrac <= m_config.oddPtFrac.second));
+    if (isNormalTrack) {
       m_vecOldHists1D[Var::NTot][Type::Normal]  -> Fill(rec_ntot);
       m_vecOldHists1D[Var::NIntt][Type::Normal] -> Fill(rec_nintt);
       m_vecOldHists1D[Var::NMvtx][Type::Normal] -> Fill(rec_nmaps);
@@ -1973,24 +1894,54 @@ void STrackMatcherComparator::GetOldTupleHists() {
 
 void STrackMatcherComparator::MakeRatiosAndPlots(
   const vector<vector<TH1D*>> vecNewHists1D,
-  const vector<vector<vector<TH2D*>> vecNewHists2D,
+  const vector<vector<vector<TH2D*>>> vecNewHists2D,
   const int iDir,
   const string sLabel
 ) {
 
   // announce start of routine
-  const size_t nHistRow1D   = m_vecOldHists1D.size();
-  const size_t nHistRow2D   = m_vecOldHists2D.size();
+  const size_t nHistRows1D  = m_vecOldHists1D.size();
+  const size_t nHistRows2D  = m_vecOldHists2D.size();
   const size_t nHistTypes1D = m_vecOldHists1D.front().size();
   const size_t nHistTypes2D = m_vecOldHists2D.front().size();
   const size_t nHist2D      = m_vecOldHists2D.front().front().size();
   cout << "      Making ratios and plots:" << endl;
 
   // create 1d canvas names
-  vector<vector<string>> vecCanvasNames1D;
+  vector<vector<string>> vecCanvasNames1D(nHistRows1D);
+  for (size_t iHistRow1D = 0; iHistRow1D < nHistRows1D; iHistRow1D++) {
+    vecCanvasNames1D[iHistRow1D].reserve(nHistTypes1D);
+    for (size_t iHistType1D = 0; iHistType1D < nHistTypes1D; iHistType1D++) {
+
+      // get base
+      vecCanvasNames1D[iHistRow1D][iHistType1D] = m_hist.vecNameBase[iHistRow1D][iHistType1D];
+
+      // replace h prefix w/ c
+      vecCanvasNames1D[iHistRow1D][iHistType1D].replace(0, 1, "c");
+      cout << "CHECK0: name = " << vecCanvasNames1D[iHistRow1D][iHistType1D] << endl;
+    }
+  }
 
   // create 2d canvas names
-  vector<vector<vector<string>>> vecCanvasNames2D;
+  vector<vector<vector<string>>> vecCanvasNames2D(nHistRows2D);
+  for (size_t iHistRow2D = 0; iHistRow2D < nHistRows2D; iHistRow2D++) {
+    vecCanvasNames2D[iHistRow2D].reserve(nHistRows2D);
+    for (size_t iHistType2D = 0; iHistType2D < nHistTypes2D; iHistType2D++) {
+      vecCanvasNames2D[iHistRow2D][iHistType2D].reserve(nHist2D);
+      for (size_t iHist2D = 0; iHist2D < nHist2D; iHist2D++) {
+
+        // get base
+        vecCanvasNames2D[iHistRow2D][iHistType2D][iHist2D] = m_hist.vecNameBase[iHistRow2D][iHistType2D];
+        vecCanvasNames2D[iHistRow2D][iHistType2D][iHist2D] += m_hist.vecVsModifiers[iHist2D];
+
+        // replace h prefix 2/ c
+        vecCanvasNames2D[iHistRow2D][iHistType2D][iHist2D].replace(0, 1, "c");
+        cout << "CHECK1: name = " << vecCanvasNames2D[iHistRow2D][iHistType2D][iHist2D] << endl;
+
+      }
+    }
+  }
+  cout << "        Set up canvas names." << endl;
 
 /*
   // canvas names
@@ -2189,7 +2140,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
 
   // set z-axis ranges if needed
   if (m_config.matchVertScales) {
-    for (size_t iHistRow2D = 0; iHistRow2D < nHistRow2D; iHistRow2D++) {
+    for (size_t iHistRow2D = 0; iHistRow2D < nHistRows2D; iHistRow2D++) {
       for (size_t iHistType2D = 0; iHistType2D < nHistTypes2D; iHistType2D++) {
         for (size_t iHist2D = 0; iHist2D < nHist2D; iHist2D++) {
           const float oldMin = m_vecOldHists2D[iHistRow2D][iHistType2D][iHist2D] -> GetMinimum(0.);
@@ -2207,11 +2158,11 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   }
 
   // pick relevant count
-  string m_config.countUse("");
+  string countUse("");
   if (m_config.doIntNorm) {
-    m_config.countUse = m_config.norm;
+    countUse = m_config.norm;
   } else {
-    m_config.countUse = m_config.count;
+    countUse = m_config.count;
   }
 
   // calculate ratios ---------------------------------------------------------
@@ -2247,10 +2198,10 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
         sRatioName.Append("_");
         sRatioName.Append(sLabel.data());
 
-        vecRatios2D[iHist2D] = (TH2D*) m_vecOldHists2D[iHistRow2D][iHistType2D][iHist2D] -> Clone();
-        vecRatios2D[iHist2D] -> SetName(sRatioName.Data());
-        vecRatios2D[iHist2D] -> Reset("ICES");
-        vecRatios2D[iHist2D] -> Divide(m_vecOldHists2D[iHistRow2D][iHistType2D][iHist2D], vecNewHists2D[iHistRow2D][iHistType2D][iHist2D], 1., 1.);
+        vecRatios2D[iHistRow2D][iHistType2D][iHist2D] = (TH2D*) m_vecOldHists2D[iHistRow2D][iHistType2D][iHist2D] -> Clone();
+        vecRatios2D[iHistRow2D][iHistType2D][iHist2D] -> SetName(sRatioName.Data());
+        vecRatios2D[iHistRow2D][iHistType2D][iHist2D] -> Reset("ICES");
+        vecRatios2D[iHistRow2D][iHistType2D][iHist2D] -> Divide(m_vecOldHists2D[iHistRow2D][iHistType2D][iHist2D], vecNewHists2D[iHistRow2D][iHistType2D][iHist2D], 1., 1.);
       }
     }
   }
@@ -2278,7 +2229,6 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   // set old histogram styles
   for (auto oldHistRow1D : m_vecOldHists1D) {
     for (auto hOldHist1D : oldHistRow1D) {
-      hOldHist1D -> SetName(sOldName.Data());
       hOldHist1D -> SetMarkerColor(m_config.fCol.first);
       hOldHist1D -> SetMarkerStyle(m_config.fMar.first);
       hOldHist1D -> SetFillColor(m_config.fCol.first);
@@ -2295,7 +2245,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
       hOldHist1D -> GetXaxis() -> SetLabelSize(fLabH[0]);
       hOldHist1D -> GetXaxis() -> SetLabelOffset(fOffLH[0]);
       hOldHist1D -> GetXaxis() -> CenterTitle(fCnt);
-      hOldHist1D -> GetYaxis() -> SetTitle(m_config.countUse.data());
+      hOldHist1D -> GetYaxis() -> SetTitle(countUse.data());
       hOldHist1D -> GetYaxis() -> SetTitleFont(fTxt);
       hOldHist1D -> GetYaxis() -> SetTitleSize(fTitH[1]);
       hOldHist1D -> GetYaxis() -> SetTitleOffset(fOffTH[1]);
@@ -2308,7 +2258,6 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   for (auto oldHistRow2D : m_vecOldHists2D) {
     for (auto oldHistTypes2D : oldHistRow2D) {
       for (auto hOldHist2D : oldHistTypes2D) {
-        hOldHist2D -> SetName(sOldName.Data());
         hOldHist2D -> SetMarkerColor(m_config.fCol.first);
         hOldHist2D -> SetMarkerStyle(m_config.fMar.first);
         hOldHist2D -> SetFillColor(m_config.fCol.first);
@@ -2332,7 +2281,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
         hOldHist2D -> GetYaxis() -> SetLabelSize(fLabH[1]);
         hOldHist2D -> GetYaxis() -> SetLabelOffset(fOffLH[1]);
         hOldHist2D -> GetYaxis() -> CenterTitle(fCnt);
-        hOldHist2D -> GetZaxis() -> SetTitle(m_config.countUse.data());
+        hOldHist2D -> GetZaxis() -> SetTitle(countUse.data());
         hOldHist2D -> GetZaxis() -> SetTitleFont(fTxt);
         hOldHist2D -> GetZaxis() -> SetTitleSize(fTitH[2]);
         hOldHist2D -> GetZaxis() -> SetTitleOffset(fOffTH[2]);
@@ -2347,7 +2296,6 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   // set new histogram styles
   for (auto newHistRow1D : vecNewHists1D) {
     for (auto hNewHist1D : newHistRow1D) {
-      hNewHist1D -> SetName(sNewName.Data());
       hNewHist1D -> SetMarkerColor(m_config.fCol.second);
       hNewHist1D -> SetMarkerStyle(m_config.fMar.second);
       hNewHist1D -> SetFillColor(m_config.fCol.second);
@@ -2364,7 +2312,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
       hNewHist1D -> GetXaxis() -> SetLabelSize(fLabH[0]);
       hNewHist1D -> GetXaxis() -> SetLabelOffset(fOffLH[0]);
       hNewHist1D -> GetXaxis() -> CenterTitle(fCnt);
-      hNewHist1D -> GetYaxis() -> SetTitle(m_config.countUse.data());
+      hNewHist1D -> GetYaxis() -> SetTitle(countUse.data());
       hNewHist1D -> GetYaxis() -> SetTitleFont(fTxt);
       hNewHist1D -> GetYaxis() -> SetTitleSize(fTitH[1]);
       hNewHist1D -> GetYaxis() -> SetTitleOffset(fOffTH[1]);
@@ -2377,7 +2325,6 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   for (auto newHistRow2D : vecNewHists2D) {
     for (auto newHistTypes2D : newHistRow2D) {
       for (auto hNewHist2D : newHistTypes2D) {
-        hNewHist2D -> SetName(sNewName.Data());
         hNewHist2D -> SetMarkerColor(m_config.fCol.first);
         hNewHist2D -> SetMarkerStyle(m_config.fMar.first);
         hNewHist2D -> SetFillColor(m_config.fCol.first);
@@ -2401,7 +2348,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
         hNewHist2D -> GetYaxis() -> SetLabelSize(fLabH[1]);
         hNewHist2D -> GetYaxis() -> SetLabelOffset(fOffLH[1]);
         hNewHist2D -> GetYaxis() -> CenterTitle(fCnt);
-        hNewHist2D -> GetZaxis() -> SetTitle(m_config.countUse.data());
+        hNewHist2D -> GetZaxis() -> SetTitle(countUse.data());
         hNewHist2D -> GetZaxis() -> SetTitleFont(fTxt);
         hNewHist2D -> GetZaxis() -> SetTitleSize(fTitH[2]);
         hNewHist2D -> GetZaxis() -> SetTitleOffset(fOffTH[2]);
@@ -2432,7 +2379,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
       hRatio1D -> GetXaxis() -> SetLabelSize(fLabR1[0]);
       hRatio1D -> GetXaxis() -> SetLabelOffset(fOffLR1[0]);
       hRatio1D -> GetXaxis() -> CenterTitle(fCnt);
-      hRatio1D -> GetYaxis() -> SetTitle(sRatio.data());
+      hRatio1D -> GetYaxis() -> SetTitle(m_config.ratio.data());
       hRatio1D -> GetYaxis() -> SetTitleFont(fTxt);
       hRatio1D -> GetYaxis() -> SetTitleSize(fTitR1[1]);
       hRatio1D -> GetYaxis() -> SetTitleOffset(fOffTR1[1]);
@@ -2468,7 +2415,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
         hRatio2D -> GetYaxis() -> SetLabelSize(fLabR2[1]);
         hRatio2D -> GetYaxis() -> SetLabelOffset(fOffLR2[1]);
         hRatio2D -> GetYaxis() -> CenterTitle(fCnt);
-        hRatio2D -> GetZaxis() -> SetTitle(sRatio.data());
+        hRatio2D -> GetZaxis() -> SetTitle(m_config.ratio.data());
         hRatio2D -> GetZaxis() -> SetTitleFont(fTxt);
         hRatio2D -> GetZaxis() -> SetTitleSize(fTitR2[2]);
         hRatio2D -> GetZaxis() -> SetTitleOffset(fOffTR2[2]);
@@ -2496,8 +2443,8 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   leg -> SetLineStyle(fLinLe);
   leg -> SetTextFont(fTxt);
   leg -> SetTextAlign(fAln);
-  leg -> AddEntry(vecOldHists1D.front().front(), m_config.legOld.data(), "pf");
-  leg -> AddEntry(vecNewHists1D.front().front(), m_config.legNew.data(), "pf");
+  leg -> AddEntry(m_vecOldHists1D.front().front(), m_config.legOld.data(), "pf");
+  leg -> AddEntry(vecNewHists1D.front().front(),   m_config.legNew.data(), "pf");
   cout << "        Made legend." << endl;
 
   // make text
@@ -2513,7 +2460,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   txt -> SetLineStyle(fLinTx);
   txt -> SetTextFont(fTxt);
   txt -> SetTextAlign(fAln);
-  for (const string txtLine : m_config.info) {
+  for (string txtLine : m_config.info) {
     txt -> AddText(txtLine.data());
   }
   cout << "        Made text." << endl;
@@ -2555,8 +2502,12 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   for (size_t iHistRow1D = 0; iHistRow1D < nHistRows1D; iHistRow1D++) {
     for (size_t iHist1D = 0; iHist1D < nHistTypes1D; iHist1D++) {
 
+      // make new name
+      const string sName = vecCanvasNames1D[iHistRow1D][iHist1D] + "_" + sLabel;
+
+
       // construct canvas
-      TCanvas* cPlot1D = new TCanvas(vecCanvasNames1D[iHistRow1D][iHist1D].data(), "", width1D, height);
+      TCanvas* cPlot1D = new TCanvas(sName.data(), "", width1D, height);
       cPlot1D -> SetGrid(fGrid, fGrid);
       cPlot1D -> SetTicks(fTick, fTick);
       cPlot1D -> SetBorderMode(fMode);
@@ -2588,7 +2539,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
     for (size_t iHist1D = 0; iHist1D < nHistTypes1D; iHist1D++) {
 
       // make new name
-      const string sNameWithRatio = vecCanvasNames1D[iHistRow1D][iHist1D] + "_" + sLabel;
+      const string sNameWithRatio = vecCanvasNames1D[iHistRow1D][iHist1D] + "WithRatio_" + sLabel;
 
       // construct canvas
       TCanvas* cPlot1D = new TCanvas(sNameWithRatio.data(), "", width1D, heightR1);
@@ -2708,7 +2659,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
         const string sNameWithRatio = vecCanvasNames2D[iHistRow2D][iHistType2D][iHist2D] + "_" + sLabel;
 
         // construct canvas
-        TCanvas* cPlot2D = new TCanvas(sNameWithRatio.data(), "", width2D, heightR2);
+        TCanvas* cPlot2D = new TCanvas(sNameWithRatio.data(), "", width2DR, heightR2);
         TPad*    pOld    = new TPad(sOldPadName.data(), "", xyOldPadR[0],  xyOldPadR[1],  xyOldPadR[2],  xyOldPadR[3]);
         TPad*    pNew    = new TPad(sNewPadName.data(), "", xyNewPadR[0],  xyNewPadR[1],  xyNewPadR[2],  xyNewPadR[3]);
         TPad*    pRat    = new TPad(sRatPadName.data(), "", xyRatPadR2[0], xyRatPadR2[1], xyRatPadR2[2], xyRatPadR2[3]);
@@ -2764,7 +2715,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
         pNew                                              -> cd();
         vecNewHists2D[iHistRow2D][iHistType2D][iHist2D]   -> Draw("colz");
         pRat                                              -> cd();
-        vecRatios2D[HistRow2D][iHistType2D][iHist2D]      -> Draw("colz");
+        vecRatios2D[iHistRow2D][iHistType2D][iHist2D]     -> Draw("colz");
 
         // draw text and save
         m_vecPlotDirs.at(iDir) -> cd();
@@ -2784,8 +2735,8 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
   }
   for (auto histRow2D : vecRatios2D) {
     for (auto histTypes2D : histRow2D) {
-      for (auto hRatio2D : histRow2D) {
-        hRatio2D -> WRite();
+      for (auto hRatio2D : histTypes2D) {
+        hRatio2D -> Write();
       }
     } 
   }
@@ -2803,7 +2754,7 @@ void STrackMatcherComparator::MakeRatiosAndPlots(
 void STrackMatcherComparator::SaveHistograms() {
 
   // save 1d histograms
-  for (size_t iHistRow = 0; iHistRow < m_vecTreeHists1D.size(); iHistRow+) {
+  for (size_t iHistRow = 0; iHistRow < m_vecTreeHists1D.size(); iHistRow++) {
     for (size_t iHistType = 0; iHistType < m_vecTreeHists1D[iHistRow].size(); iHistType++) {
       m_vecHistDirs[Src::NewTree]            -> cd();
       m_vecTreeHists1D[iHistRow][iHistType]  -> Write();
@@ -2816,10 +2767,10 @@ void STrackMatcherComparator::SaveHistograms() {
   cout << "      Saved 1d histograms." << endl;
 
   // save 2d histograms
-  for (size_t iHistRow = 0; iHistRow < nHistRows; iHistRow++) {
-    for (size_t iHistType = 0; iHistType < nHistTypes; iHistType++) {
-      for (size_t iVsHistMod = 0; iVsHistMod < nVsHistMods; iVsHistMod++) {
-        m_vecHistDrs[Src::NewTree]                         -> cd();
+  for (size_t iHistRow = 0; iHistRow < m_vecTreeHists2D.size(); iHistRow++) {
+    for (size_t iHistType = 0; iHistType < m_vecTreeHists2D[iHistRow].size(); iHistType++) {
+      for (size_t iVsHistMod = 0; iVsHistMod < m_vecTreeHists2D[iHistRow][iHistType].size(); iVsHistMod++) {
+        m_vecHistDirs[Src::NewTree]                        -> cd();
         m_vecTreeHists2D[iHistRow][iHistType][iVsHistMod]  -> Write();
         m_vecHistDirs[Src::NewTuple]                       -> cd(); 
         m_vecTupleHists2D[iHistRow][iHistType][iVsHistMod] -> Write();

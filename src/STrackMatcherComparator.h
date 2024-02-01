@@ -20,6 +20,7 @@
 #include <TDirectory.h>
 // analysis utilities
 #include "STrackMatcherComparatorConfig.h"
+#include "STrackMatcherComparatorHistBase.h"
 
 // make common namespaces implicit
 using namespace std;
@@ -60,12 +61,13 @@ class STrackMatcherComparator {
     void GetNewTupleHists();
     void GetOldTupleHists();
     void MakeRatiosAndPlots(const vector<vector<TH1D*>> vecNewHists1D, const vector<vector<vector<TH2D*>>> vecNewHists2D, const int iDir, const string sLabel);
-    void SaveOutput();
+    void SaveHistograms();
     void CloseInput();
     void CloseOutput();
 
-    // configuration
-    STrackMatcherComparatorConfig m_config;
+    // configuration & histogram info
+    STrackMatcherComparatorConfig   m_config;
+    STrackMatcherComparatorHistBase m_hist;
 
     // i/o files
     TFile* m_outFile         = NULL;
