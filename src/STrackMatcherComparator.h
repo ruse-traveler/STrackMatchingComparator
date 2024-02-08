@@ -66,6 +66,7 @@ class STrackMatcherComparator {
     void SaveHistograms();
     void CloseInput();
     void CloseOutput();
+    bool IsNearSector(const float phi);
 
     // configuration & histogram info
     STrackMatcherComparatorConfig  m_config;
@@ -111,7 +112,8 @@ class STrackMatcherComparator {
       size_t nVtx;
       size_t nSide;
       size_t nAxes;
-    } m_const = {3, 2, 2, 4, 4, 3};
+      size_t nSectors;
+    } m_const = {3, 2, 2, 4, 4, 3, 12};
 
     // accessors
     enum Src {

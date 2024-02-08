@@ -487,6 +487,7 @@ void STrackMatcherComparator::GetNewTreeHists() {
     }
 
     // select truth particles
+    //   - FIXME add cuts
     if (!tru_is_G4track) continue;
 
     // fill truth 1D histograms
@@ -579,6 +580,7 @@ void STrackMatcherComparator::GetNewTreeHists() {
     }
 
     // select only tracks matched to truth particle
+    //   - FIXME add cuts
     if (!rec_is_matched || !rec_is_Svtrack) continue;
 
     // fill all matched reco 1D histograms
@@ -1012,6 +1014,17 @@ void STrackMatcherComparator::GetNewTupleHists() {
       cout << "          Processing entry " << iTrueProg << "/" << nTrueEntries << "...\r" << flush;
     }
 
+    // check if near sector
+    bool isNearSector = false;
+    if (m_config.doPhiCut) {
+      isNearSector = IsNearSector(tru_gphi);
+    }
+
+    // apply cuts
+    const bool isInZVtxCut  = ((tru_gvz >= m_config.zVtxRange.first) && (tru_gvz <= m_config.zVtxRange.second));
+    if (m_config.doZVtxCut && !isInZVtxCut) continue;
+    if (m_config.doPhiCut  && isNearSector) continue;
+
     // run calculations
     const float tru_gnclust = tru_gnmvtxclust_trkmatcher + tru_gninttclust_trkmatcher + tru_gntpclust_trkmatcher;
 
@@ -1102,6 +1115,17 @@ void STrackMatcherComparator::GetNewTupleHists() {
     } else {
       cout << "          Processing entry " << iRecoProg << "/" << nRecoEntries << "...\r" << flush;
     }
+
+    // check if near sector
+    bool isNearSector = false;
+    if (m_config.doPhiCut) {
+      isNearSector = IsNearSector(rec_phi);
+    }
+
+    // apply cuts
+    const bool isInZVtxCut = ((rec_vz >= m_config.zVtxRange.first) && (rec_vz <= m_config.zVtxRange.second));
+    if (m_config.doZVtxCut && !isInZVtxCut) continue;
+    if (m_config.doPhiCut  && isNearSector) continue;
 
     // run calculations
     //   - FIXME add other errors
@@ -1839,9 +1863,21 @@ void STrackMatcherComparator::GetOldTupleHists() {
       cout << "          Processing entry " << iTrueProg << "/" << nTrueEntries << "...\r" << flush;
     }
 
-    // select only primary truth particles
-    const bool isPrimary = ((tru_gprimary == 1) && !isnan(tru_trackID));
-    if (!isPrimary) continue;
+    // skip nan's
+    if (isnan(tru_trackID)) continue;
+
+    // check if near sector
+    bool isNearSector = false;
+    if (m_config.doPhiCut) {
+      isNearSector = IsNearSector(tru_gphi);
+    }
+
+    // apply cuts
+    const bool isPrimary   = (tru_gprimary == 1);
+    const bool isInZVtxCut = ((tru_gvz > m_config.zVtxRange.first) && (tru_gvz < m_config.zVtxRange.second));
+    if (m_config.useOnlyPrimTrks && !isPrimary)   continue;
+    if (m_config.doZVtxCut       && !isInZVtxCut) continue;
+    if (m_config.doPhiCut        && isNearSector) continue;
 
     // run calculations
     const double tru_gntot = tru_gnintt + tru_gnmaps + tru_gntpc;
@@ -1935,8 +1971,20 @@ void STrackMatcherComparator::GetOldTupleHists() {
     }
 
     // skip nan's
-    //   - TODO also add option to filter out non-primary tracks
     if (isnan(rec_gpt)) continue;
+
+    // check if near sector
+    bool isNearSector = false;
+    if (m_config.doPhiCut) {
+      isNearSector = IsNearSector(rec_phi);
+    }
+
+    // apply cuts
+    const bool isPrimary   = (rec_gprimary == 1);
+    const bool isInZVtxCut = ((rec_vz > m_config.zVtxRange.first) && (rec_vz < m_config.zVtxRange.second));
+    if (m_config.useOnlyPrimTrks && !isPrimary)   continue;
+    if (m_config.doZVtxCut       && !isInZVtxCut) continue;
+    if (m_config.doPhiCut        && isNearSector) continue;
 
     // run calculations
     const double rec_ntot   = rec_nintt + rec_nmaps + rec_ntpc;
@@ -2916,5 +2964,24 @@ void STrackMatcherComparator::CloseOutput() {
   return;
 
 }  // end 'CloseOutput()'
+
+
+
+bool STrackMatcherComparator::IsNearSector(const float phi) {
+
+  bool isNearSector = false;
+  for (size_t iSector = 0; iSector < m_const.nSectors; iSector++) {
+    const float cutVal = m_config.sigCutVal * m_config.phiSectors[iSector].second;
+    const float minPhi = m_config.phiSectors[iSector].first - cutVal;
+    const float maxPhi = m_config.phiSectors[iSector].first + cutVal;
+    const bool  isNear = ((phi >= minPhi) && (phi <= maxPhi));
+    if (isNear) {
+      isNearSector = true;
+      break;
+    }
+  }  // end sector loop
+  return isNearSector;
+
+}  // end 'IsNearSector(float)'
 
 // end ------------------------------------------------------------------------
